@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from sqlalchemy import URL
 from sqlmodel import Session, SQLModel, create_engine
 
+from users.models import User
+
 load_dotenv()
 
 
