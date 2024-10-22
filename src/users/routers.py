@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -7,7 +5,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import select
 
 from config.auth import (
-    ACCESS_TOKEN_EXPIRE_MINUTES,
     authenticate,
     create_access_token,
     get_password_hash,
@@ -22,8 +19,7 @@ router = APIRouter()
 @router.post("/register/", tags=["users"], response_model=UserResponse)
 async def register(payload: User, session=Depends(get_session)):
     try:
-        email = validate_email(payload.email, check_deliverability=False)
-        email = email.normalized
+        email = validate_email(payload.email, check_deliverability=False).normalized
     except EmailNotValidError as exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exception)
@@ -62,8 +58,7 @@ async def get_access_token(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": create_access_token(data={"sub": user.username}),
+        "token_type": "bearer",
+    }

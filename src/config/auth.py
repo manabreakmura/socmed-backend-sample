@@ -12,7 +12,6 @@ from users.models import User
 load_dotenv()
 
 SECRET_KEY = environ["SECRET_KEY"]  # openssl rand -hex 32
-ACCESS_TOKEN_EXPIRE_MINUTES = environ["ACCESS_TOKEN_EXPIRE_MINUTES"]
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
@@ -26,15 +25,11 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: timedelta):
+def create_access_token(data: dict):
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
-    return encoded_jwt
+    return jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
 
 
 def authenticate(session, username: str, password: str):
