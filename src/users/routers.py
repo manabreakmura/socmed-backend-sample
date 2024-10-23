@@ -1,4 +1,3 @@
-from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import SQLAlchemyError
@@ -7,23 +6,20 @@ from sqlmodel import select
 from config.auth import (
     authenticate,
     create_access_token,
+    get_current_user,
     get_password_hash,
     oauth2_scheme,
+    validate_email_or_raise,
 )
 from config.database import get_session
-from users.models import Token, User, UserResponse
+from users.models import Token, User
 
 router = APIRouter()
 
 
-@router.post("/register/", tags=["users"], response_model=UserResponse)
+@router.post("/register/", tags=["users"], response_model=User)
 async def register(payload: User, session=Depends(get_session)):
-    try:
-        email = validate_email(payload.email, check_deliverability=False).normalized
-    except EmailNotValidError as exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exception)
-        )
+    email = validate_email_or_raise(payload.email)
 
     try:
         user = User(
@@ -53,18 +49,18 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return {
-        "access_token": create_access_token(data={"sub": user.username}),
+        "access_token": create_access_token(data={"sub": user.id}),
         "token_type": "bearer",
     }
 
 
-@router.get("/users/", tags=["users"], response_model=list[UserResponse])
+@router.get("/users/", tags=["users"], response_model=list[User])
 async def get_all_users(session=Depends(get_session), auth=Depends(oauth2_scheme)):
     statement = select(User)
     return session.exec(statement).all()
 
 
-@router.get("/users/{id}/", tags=["users"], response_model=UserResponse)
+@router.get("/users/{id}/", tags=["users"], response_model=User)
 async def get_user_by_id(id, session=Depends(get_session)):
     try:
         statement = select(User).where(User.id == id)
@@ -73,3 +69,30 @@ async def get_user_by_id(id, session=Depends(get_session)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exception)
         )
+
+
+@router.patch("/users/", tags=["users"], response_model=User)
+async def update_user(
+    payload: User, session=Depends(get_session), token=Depends(oauth2_scheme)
+):
+    user = get_current_user(session, token)
+
+    if payload.username:
+        user.username = payload.username
+
+    if payload.email:
+        user.email = validate_email_or_raise(payload.email)
+
+    if payload.password:
+        user.password = get_password_hash(payload.password)
+
+    try:
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+    except SQLAlchemyError as exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exception)
+        )
+
+    return user

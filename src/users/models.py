@@ -9,12 +9,6 @@ class User(SQLModel, table=True):
     password: str = Field(max_length=128)
 
 
-class UserResponse(SQLModel):
-    id: int
-    email: str
-    username: str
-
-
 class Token(SQLModel):
     access_token: str
     token_type: str
