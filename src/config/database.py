@@ -1,21 +1,16 @@
-from os import environ
-
-from dotenv import load_dotenv
+from decouple import config
 from sqlalchemy import URL
 from sqlmodel import Session, SQLModel, create_engine
 
 from users.models import User
 
-load_dotenv()
-
-
 url_object = URL.create(
     drivername="postgresql",
-    username=environ["POSTGRES_USER"],
-    password=environ["POSTGRES_PASSWORD"],
-    host=environ["POSTGRES_HOST"],
-    port=environ["POSTGRES_PORT"],
-    database=environ["POSTGRES_DATABASE"],
+    username=config("POSTGRES_USER"),
+    password=config("POSTGRES_PASSWORD"),
+    host=config("POSTGRES_HOST"),
+    port=config("POSTGRES_PORT"),
+    database=config("POSTGRES_DATABASE"),
 )
 engine = create_engine(url_object, echo=True)
 SQLModel.metadata.create_all(engine)

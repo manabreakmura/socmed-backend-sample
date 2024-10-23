@@ -1,17 +1,14 @@
 from datetime import datetime, timedelta, timezone
-from os import environ
 
 import jwt
-from dotenv import load_dotenv
+from decouple import config
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlmodel import select
 
 from users.models import User
 
-load_dotenv()
-
-SECRET_KEY = environ["SECRET_KEY"]  # openssl rand -hex 32
+SECRET_KEY = config("SECRET_KEY")  # openssl rand -hex 32
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
