@@ -15,7 +15,7 @@ SECRET_KEY = config("SECRET_KEY")  # openssl rand -hex 32
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
 
 
 def verify_password(plain_password, hashed_password):
@@ -60,6 +60,7 @@ def get_current_user(session, token):
             raise credentials_exception
     except jwt.InvalidTokenError:
         raise credentials_exception
+
     statement = select(User).where(User.id == user_id)
     user = session.execute(statement).scalar_one()
     if user is None:

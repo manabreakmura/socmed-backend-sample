@@ -14,11 +14,11 @@ from config.auth import (
 from config.database import get_session
 from users.models import Token, User
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1", tags=["users"])
 
 
-@router.post("/register/", tags=["users"], response_model=User)
-async def register(payload: User, session=Depends(get_session)):
+@router.post("/users/", response_model=User)
+async def create_user(payload: User, session=Depends(get_session)):
     email = validate_email_or_raise(payload.email)
 
     try:
@@ -37,7 +37,7 @@ async def register(payload: User, session=Depends(get_session)):
         )
 
 
-@router.post("/auth/token", tags=["users"], response_model=Token)
+@router.post("/auth/token", response_model=Token)
 async def login(
     form_data=Depends(OAuth2PasswordRequestForm), session=Depends(get_session)
 ):
@@ -54,13 +54,13 @@ async def login(
     }
 
 
-@router.get("/users/", tags=["users"], response_model=list[User])
+@router.get("/users/", response_model=list[User])
 async def get_all_users(session=Depends(get_session), auth=Depends(oauth2_scheme)):
     statement = select(User)
     return session.exec(statement).all()
 
 
-@router.get("/users/{id}/", tags=["users"], response_model=User)
+@router.get("/users/{id}/", response_model=User)
 async def get_user_by_id(id, session=Depends(get_session)):
     try:
         statement = select(User).where(User.id == id)
@@ -71,11 +71,14 @@ async def get_user_by_id(id, session=Depends(get_session)):
         )
 
 
-@router.patch("/users/", tags=["users"], response_model=User)
+@router.patch("/users/", response_model=User)
 async def update_user(
     payload: User, session=Depends(get_session), token=Depends(oauth2_scheme)
 ):
     user = get_current_user(session, token)
+
+    if not payload.id == user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
     if payload.username:
         user.username = payload.username
@@ -98,7 +101,7 @@ async def update_user(
     return user
 
 
-@router.delete("/users/{id}/", tags=["users"], response_model=User)
+@router.delete("/users/{id}/", response_model=User)
 async def delete_user(id, session=Depends(get_session), token=Depends(oauth2_scheme)):
     try:
         statement = select(User).where(User.id == id)
