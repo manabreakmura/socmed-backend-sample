@@ -37,14 +37,13 @@ def authenticate(session, username: str, password: str):
     try:
         statement = select(User).where(User.username == username)
         user = session.execute(statement).scalar_one()
+
+        if verify_password(password, user.password):
+            return user
     except SQLAlchemyError as exception:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exception)
+            status_code=status.HTTP_404_NOT_FOUND, detail=exception.args
         )
-
-    if not verify_password(password, user.password):
-        return False
-    return user
 
 
 def get_current_user(session, token):
@@ -61,11 +60,14 @@ def get_current_user(session, token):
     except jwt.InvalidTokenError:
         raise credentials_exception
 
-    statement = select(User).where(User.id == user_id)
-    user = session.execute(statement).scalar_one()
-    if user is None:
-        raise credentials_exception
-    return user
+    try:
+        statement = select(User).where(User.id == user_id)
+        user = session.execute(statement).scalar_one()
+        return user
+    except SQLAlchemyError as exception:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=exception.args
+        )
 
 
 def validate_email_or_raise(email):
@@ -73,5 +75,5 @@ def validate_email_or_raise(email):
         return validate_email(email, check_deliverability=False).normalized
     except EmailNotValidError as exception:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exception)
+            status_code=status.HTTP_400_BAD_REQUEST, detail=exception.args
         )

@@ -19,12 +19,10 @@ router = APIRouter(prefix="/api/v1", tags=["users"])
 
 @router.post("/users/", response_model=User)
 async def create_user(payload: User, session=Depends(get_session)):
-    email = validate_email_or_raise(payload.email)
-
     try:
         user = User(
-            email=email,
             username=payload.username,
+            email=validate_email_or_raise(payload.email),
             password=get_password_hash(payload.password),
         )
         session.add(user)
@@ -33,11 +31,11 @@ async def create_user(payload: User, session=Depends(get_session)):
         return user
     except SQLAlchemyError as exception:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exception)
+            status_code=status.HTTP_400_BAD_REQUEST, detail=exception.args
         )
 
 
-@router.post("/auth/token", response_model=Token)
+@router.post("/auth/token/", response_model=Token)
 async def login(
     form_data=Depends(OAuth2PasswordRequestForm), session=Depends(get_session)
 ):
@@ -64,10 +62,10 @@ async def get_all_users(session=Depends(get_session), auth=Depends(oauth2_scheme
 async def get_user_by_id(id, session=Depends(get_session)):
     try:
         statement = select(User).where(User.id == id)
-        return session.exec(statement).one()
+        return session.execute(statement).scalar_one()
     except SQLAlchemyError as exception:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exception)
+            status_code=status.HTTP_400_BAD_REQUEST, detail=exception.args
         )
 
 
@@ -93,12 +91,11 @@ async def update_user(
         session.add(user)
         session.commit()
         session.refresh(user)
+        return user
     except SQLAlchemyError as exception:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exception)
+            status_code=status.HTTP_400_BAD_REQUEST, detail=exception.args
         )
-
-    return user
 
 
 @router.delete("/users/{id}/", response_model=User)
@@ -107,6 +104,7 @@ async def delete_user(id, session=Depends(get_session), token=Depends(oauth2_sch
         statement = select(User).where(User.id == id)
         user = session.execute(statement).scalar_one()
         current_user = get_current_user(session, token)
+
         if not user.id == current_user.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
@@ -115,5 +113,5 @@ async def delete_user(id, session=Depends(get_session), token=Depends(oauth2_sch
         return user
     except SQLAlchemyError as exception:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exception)
+            status_code=status.HTTP_400_BAD_REQUEST, detail=exception.args
         )
