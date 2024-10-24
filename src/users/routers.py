@@ -96,3 +96,21 @@ async def update_user(
         )
 
     return user
+
+
+@router.delete("/users/{id}/", tags=["users"], response_model=User)
+async def delete_user(id, session=Depends(get_session), token=Depends(oauth2_scheme)):
+    try:
+        statement = select(User).where(User.id == id)
+        user = session.execute(statement).scalar_one()
+        current_user = get_current_user(session, token)
+        if not user.id == current_user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
+        session.delete(user)
+        session.commit()
+        return user
+    except SQLAlchemyError as exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exception)
+        )
