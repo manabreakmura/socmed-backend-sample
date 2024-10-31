@@ -1,6 +1,8 @@
 from decouple import config
 from sqlalchemy import URL
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
+
+from users.models import User
 
 database_url = URL.create(
     "postgresql+psycopg",
@@ -11,7 +13,6 @@ database_url = URL.create(
 )
 
 engine = create_engine(database_url)
-SQLModel.metadata.create_all(engine)
 
 
 def get_session():
