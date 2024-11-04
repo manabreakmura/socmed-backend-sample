@@ -12,6 +12,7 @@ python-decouple = "^3.8"
 sqlmodel = "^0.0.22"
 psycopg = {extras = ["binary"], version = "^3.2.3"}
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+pyjwt = "^2.9.0"
 
 
 [build-system]
