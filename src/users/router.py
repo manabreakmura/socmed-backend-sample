@@ -18,12 +18,12 @@ router = APIRouter(prefix="/api/v1", tags=["users"])
 
 
 @router.post("/signup/")
-def signup(user: User, session: session_dependency) -> User:
+def signup(data: User, session: session_dependency) -> User:
     try:
         user = User(
-            username=user.username,
-            email=validate_email(user.email),
-            password=hash_password(user.password),
+            username=data.username,
+            email=validate_email(data.email),
+            password=hash_password(data.password),
         )
         session.add(user)
         session.commit()
@@ -61,7 +61,27 @@ def get_access_token(
 
 @router.get("/auth/me/")
 def me(session: session_dependency, token: token_dependency) -> User:
+    return get_current_user(session, token)
+
+
+@router.patch("/users/{user_id}/")
+def update_user(user_id: int, data: User, session: session_dependency) -> User:
     try:
-        return get_current_user(session, token)
+        statement = select(User).where(User.id == user_id)
+        user = session.exec(statement).one()
+
+        if data.username:
+            user.username = data.username
+
+        if data.email:
+            user.email = validate_email(data.email)
+
+        if data.password:
+            user.password = hash_password(data.password)
+
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user
     except SQLAlchemyError as exception:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, exception.args)
