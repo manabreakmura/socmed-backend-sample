@@ -85,3 +85,12 @@ def update_user(user_id: int, data: User, session: session_dependency) -> User:
         return user
     except SQLAlchemyError as exception:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, exception.args)
+
+
+@router.get("/users/{user_id}/")
+def get_user(user_id: int, session: session_dependency) -> User:
+    try:
+        statement = select(User).where(User.id == user_id)
+        return session.exec(statement).one()
+    except SQLAlchemyError as exception:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, exception.args)
