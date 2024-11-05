@@ -94,3 +94,15 @@ def get_user(user_id: int, session: session_dependency) -> User:
         return session.exec(statement).one()
     except SQLAlchemyError as exception:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, exception.args)
+
+
+@router.delete("/users/{user_id}/")
+def delete_user(user_id: int, session: session_dependency) -> User:
+    try:
+        statement = select(User).where(User.id == user_id)
+        user = session.exec(statement).one()
+        session.delete(user)
+        session.commit()
+        return user
+    except SQLAlchemyError as exception:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, exception.args)
