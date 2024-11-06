@@ -9,6 +9,7 @@ class User(SQLModel, table=True):
     username: str = Field(max_length=64, unique=True, index=True)
     email: EmailStr = Field(max_length=64, unique=True, index=True)
     password: str = Field(max_length=128)
+    is_admin: bool = False
 
 
 class Token(SQLModel):

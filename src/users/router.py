@@ -47,6 +47,7 @@ def get_access_token(
     form_data: form_data_dependency, session: session_dependency
 ) -> Token:
     user = authenticate(session, form_data.username, form_data.password)
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -59,30 +60,31 @@ def get_access_token(
     }
 
 
-@router.get("/auth/me/")
-def me(session: session_dependency, token: token_dependency) -> User:
-    return get_current_user(session, token)
-
-
 @router.patch("/users/{user_id}/")
-def update_user(user_id: int, data: User, session: session_dependency) -> User:
+def update_user(
+    user_id: int, data: User, session: session_dependency, token: token_dependency
+) -> User:
     try:
         statement = select(User).where(User.id == user_id)
-        user = session.exec(statement).one()
+        updated_user = session.exec(statement).one()
+
+        current_user = get_current_user(session, token)
+        if not (current_user.id == updated_user.id or current_user.is_admin):
+            raise HTTPException(status.HTTP_403_FORBIDDEN)
 
         if data.username:
-            user.username = data.username
+            updated_user.username = data.username
 
         if data.email:
-            user.email = validate_email(data.email)
+            updated_user.email = validate_email(data.email)
 
         if data.password:
-            user.password = hash_password(data.password)
+            updated_user.password = hash_password(data.password)
 
-        session.add(user)
+        session.add(updated_user)
         session.commit()
-        session.refresh(user)
-        return user
+        session.refresh(updated_user)
+        return updated_user
     except SQLAlchemyError as exception:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, exception.args)
 
@@ -97,12 +99,19 @@ def get_user(user_id: int, session: session_dependency) -> User:
 
 
 @router.delete("/users/{user_id}/")
-def delete_user(user_id: int, session: session_dependency) -> User:
+def delete_user(
+    user_id: int, session: session_dependency, token: token_dependency
+) -> User:
     try:
         statement = select(User).where(User.id == user_id)
-        user = session.exec(statement).one()
-        session.delete(user)
+        deleted_user = session.exec(statement).one()
+
+        current_user = get_current_user(session, token)
+        if not (current_user.id == deleted_user.id or current_user.is_admin):
+            raise HTTPException(status.HTTP_403_FORBIDDEN)
+
+        session.delete(deleted_user)
         session.commit()
-        return user
+        return deleted_user
     except SQLAlchemyError as exception:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, exception.args)
