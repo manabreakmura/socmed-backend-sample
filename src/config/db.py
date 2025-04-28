@@ -10,12 +10,19 @@ session = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def get_session():
-    async with session as se:
+    async with session() as se:
         yield se
-
-
-session_dependency = Annotated[AsyncSession, Depends(get_session)]
 
 
 class Base(DeclarativeBase):
     pass
+
+
+async def create_db_tables():
+    from users.models import User  # noqa: F401
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+session_dep = Annotated[AsyncSession, Depends(get_session)]
