@@ -2,10 +2,11 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from config.auth import (
     auth_dep,
-    create_access_token,
+    encode_token,
     hash_password,
     oauth2_dep,
     verify_password,
@@ -28,7 +29,7 @@ async def signup(data: UserRequestSchema, session: session_dep) -> UserResponseS
         )
         session.add(user)
         await session.commit()
-        await session.refresh(user)
+        await session.refresh(user, attribute_names=["posts"])
         return user
     except Exception as exception:
         raise HTTPException(
@@ -49,13 +50,15 @@ async def login(session: session_dep, form_data: oauth2_dep) -> dict:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return create_access_token(user)
+    return encode_token(user)
 
 
 @users_router.get("/")
 async def get_users(session: session_dep, auth: auth_dep) -> List[UserResponseSchema]:
     try:
-        statement = select(User).order_by("created_at")
+        statement = (
+            select(User).options(selectinload(User.posts)).order_by("created_at")
+        )
         results = await session.execute(statement)
         return results.scalars()
     except Exception as exception:
