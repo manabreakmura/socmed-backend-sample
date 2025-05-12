@@ -1,17 +1,18 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr
+from pydantic import EmailStr
 
+from config.db import BaseSchema
 from posts.schemas import PostResponseSchema
 
 
-class UserRequestSchema(BaseModel):
+class UserRequestSchema(BaseSchema):
     email: EmailStr
     username: str
     password: str
 
 
-class UserResponseSchema(BaseModel):
+class UserResponseSchema(BaseSchema):
     id: int
     email: EmailStr
     username: str

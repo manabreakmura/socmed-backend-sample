@@ -1,14 +1,14 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from config.db import BaseSchema
 
 
-class PostRequestSchema(BaseModel):
+class PostRequestSchema(BaseSchema):
     title: str
     body: str
 
 
-class PostResponseSchema(BaseModel):
+class PostResponseSchema(BaseSchema):
     id: int
     title: str
     body: str

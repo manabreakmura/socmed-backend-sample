@@ -1,7 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.orm import selectinload
 
 from config.auth import (
@@ -39,7 +39,7 @@ async def signup(data: UserRequestSchema, session: session_dep) -> UserResponseS
 
 @auth_router.post("/login")
 async def login(session: session_dep, form_data: oauth2_dep) -> dict:
-    statement = select(User).filter(User.username == form_data.username)
+    statement = select(User).where(User.username == form_data.username)
     results = await session.execute(statement)
     user = results.scalar_one_or_none()
 
@@ -57,7 +57,7 @@ async def login(session: session_dep, form_data: oauth2_dep) -> dict:
 async def get_users(session: session_dep, auth: auth_dep) -> List[UserResponseSchema]:
     try:
         statement = (
-            select(User).options(selectinload(User.posts)).order_by("created_at")
+            select(User).options(selectinload(User.posts)).order_by(desc("created_at"))
         )
         results = await session.execute(statement)
         return results.scalars()
