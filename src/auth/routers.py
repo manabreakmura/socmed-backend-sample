@@ -1,0 +1,52 @@
+from fastapi import APIRouter, HTTPException, status
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import select
+
+from config.auth import encode_access_token, form_data, hash_password, verify_password
+from config.db import session_dep
+from config.log import logger
+from users.models import User
+from users.schemas import UserCreate, UserRead
+
+auth_router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+
+@auth_router.post("/signup")
+async def signup(session: session_dep, data: UserCreate) -> UserRead:
+    try:
+        row = User(
+            email=data.email,
+            username=data.username,
+            hashed_password=hash_password(data.password),
+        )
+        session.add(row)
+        await session.commit()
+        await session.refresh(row)
+        return row
+
+    except IntegrityError as e:
+        logger.debug(f"ERROR: {e}")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.debug(f"ERROR: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@auth_router.post("/login")
+async def login(session: session_dep, form_data: form_data) -> dict:
+    try:
+        statement = select(User).where(User.username == form_data.username)
+        results = await session.execute(statement)
+        row = results.scalar()
+
+        if (not row) or (not verify_password(form_data.password, row.hashed_password)):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+        return encode_access_token(row.id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.debug(f"ERROR: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
