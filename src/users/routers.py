@@ -1,7 +1,7 @@
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Response, status
-from sqlmodel import select
+from fastapi import APIRouter, HTTPException, Query, Response, status
+from sqlmodel import asc, select
 
 from config.auth import auth_dep, decode_access_token
 from config.db import session_dep
@@ -13,11 +13,16 @@ users_router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
 
 @users_router.get("/")
-async def get_users(session: session_dep) -> List[UserRead]:
+async def get_users(
+    session: session_dep,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+) -> List[UserRead]:
     try:
-        statement = select(User)
-        rows = await session.execute(statement)
-        return rows.scalars().all()
+        statement = select(User).order_by(asc(User.id)).offset(offset).limit(limit)
+        results = await session.execute(statement)
+        rows = results.scalars().all()
+        return rows
     except HTTPException:
         raise
     except Exception as e:
@@ -32,8 +37,8 @@ async def delete_user(session: session_dep, auth: auth_dep, user_id: int) -> Res
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
         statement = select(User).where(User.id == user_id)
-        row = await session.execute(statement)
-        row = row.scalar()
+        results = await session.execute(statement)
+        row = results.scalar()
 
         await session.delete(row)
         await session.commit()
