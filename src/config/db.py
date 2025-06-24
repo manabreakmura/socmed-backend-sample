@@ -15,6 +15,7 @@ async def get_session():
 
 
 async def create_db_tables():
+    from posts.models import Post  # noqa: F401
     from users.models import User  # noqa: F401
 
     async with engine.begin() as conn:

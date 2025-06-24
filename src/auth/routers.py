@@ -23,14 +23,13 @@ async def signup(session: session_dep, data: UserCreate) -> UserRead:
         await session.commit()
         await session.refresh(row)
         return row
-
     except IntegrityError as e:
-        logger.debug(f"ERROR: {e}")
+        logger.error(f"ERROR: {e}")
         raise HTTPException(status_code=status.HTTP_409_CONFLICT)
     except HTTPException:
         raise
     except Exception as e:
-        logger.debug(f"ERROR: {e}")
+        logger.error(f"ERROR: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -48,5 +47,5 @@ async def login(session: session_dep, form_data: form_data) -> dict:
     except HTTPException:
         raise
     except Exception as e:
-        logger.debug(f"ERROR: {e}")
+        logger.error(f"ERROR: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
