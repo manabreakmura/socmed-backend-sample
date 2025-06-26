@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlmodel import desc, select
 
 from config.auth import auth_dep, decode_access_token
+from config.cache import cache_dep
 from config.db import session_dep
 from config.log import logger
 from posts.models import Post
@@ -28,7 +29,7 @@ async def create_post(
 
 
 @posts_router.get("/")
-async def get_posts_by_user_id(
+async def get_posts_by_user(
     session: session_dep,
     auth: auth_dep,
     user_id: int = Query(ge=1),
@@ -53,10 +54,42 @@ async def get_posts_by_user_id(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@posts_router.get("/{post_id}")
+async def get_post_by_id(
+    session: session_dep, auth: auth_dep, cache: cache_dep, post_id: int
+) -> PostRead:
+    CACHE_KEY = f"post:{post_id}"
+    try:
+        if await cache.exists(CACHE_KEY):
+            return await cache._get(CACHE_KEY)
+
+        statement = select(Post).where(Post.id == post_id)
+        results = await session.execute(statement)
+        row = results.scalar()
+
+        if not row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+        cache_data = PostRead.model_validate(row)
+        await cache._set(CACHE_KEY, cache_data)
+
+        return row
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"ERROR: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @posts_router.patch("/{post_id}")
 async def update_post(
-    session: session_dep, auth: auth_dep, post_id: int, data: PostUpdate
+    session: session_dep,
+    auth: auth_dep,
+    cache: cache_dep,
+    post_id: int,
+    data: PostUpdate,
 ) -> PostRead:
+    CACHE_KEY = f"post:{post_id}"
     try:
         statement = select(Post).where(Post.id == post_id)
         results = await session.execute(statement)
@@ -75,6 +108,9 @@ async def update_post(
         await session.commit()
         await session.refresh(row)
 
+        cache_data = PostRead.model_validate(row)
+        await cache._set(CACHE_KEY, cache_data)
+
         return row
     except HTTPException:
         raise
@@ -84,7 +120,10 @@ async def update_post(
 
 
 @posts_router.delete("/{post_id}")
-async def delete_post(session: session_dep, auth: auth_dep, post_id: int) -> Response:
+async def delete_post(
+    session: session_dep, auth: auth_dep, cache: cache_dep, post_id: int
+) -> Response:
+    CACHE_KEY = f"post:{post_id}"
     try:
         statement = select(Post).where(Post.id == post_id)
         results = await session.execute(statement)
@@ -98,6 +137,9 @@ async def delete_post(session: session_dep, auth: auth_dep, post_id: int) -> Res
 
         await session.delete(row)
         await session.commit()
+
+        await cache._del(CACHE_KEY)
+
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except HTTPException:
         raise
