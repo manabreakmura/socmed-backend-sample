@@ -5,7 +5,7 @@ from decouple import config
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose.jwt import decode, encode
-from passlib.hash import bcrypt
+from passlib.hash import argon2
 
 ALGORITHM = "HS256"
 SECRET_KEY = config("SECRET_KEY")  # openssl rand -hex 32
@@ -15,11 +15,11 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
 
 def hash_password(password: str) -> str:
-    return bcrypt.hash(password)
+    return argon2.hash(password)
 
 
 def verify_password(password: str, hashed_password: str) -> bool:
-    return bcrypt.verify(password, hashed_password)
+    return argon2.verify(password, hashed_password)
 
 
 def encode_access_token(user_id: int) -> dict:
