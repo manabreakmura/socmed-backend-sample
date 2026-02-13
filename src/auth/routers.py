@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status
+from decouple import config
+from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
@@ -34,7 +35,7 @@ async def signup(session: session_dep, data: UserCreate) -> UserRead:
 
 
 @auth_router.post("/login")
-async def login(session: session_dep, form_data: form_data) -> dict:
+async def login(session: session_dep, form_data: form_data, response: Response) -> dict:
     try:
         statement = select(User).where(User.username == form_data.username)
         results = await session.execute(statement)
@@ -43,7 +44,18 @@ async def login(session: session_dep, form_data: form_data) -> dict:
         if (not row) or (not verify_password(form_data.password, row.hashed_password)):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
-        return encode_access_token(row.id)
+        access_token = encode_access_token(row.id)
+
+        response.set_cookie(
+            key="access_token",
+            value=access_token["access_token"],
+            httponly=True,
+            max_age=3600,
+            samesite="lax",
+            secure=False if config("DEBUG", cast=bool) else True,
+        )
+
+        return access_token
     except HTTPException:
         raise
     except Exception as e:
