@@ -1,9 +1,14 @@
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Optional
 
 from decouple import config
-from fastapi import Depends
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import (
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+    OAuth2PasswordBearer,
+    OAuth2PasswordRequestForm,
+)
 from jose.jwt import decode, encode
 from passlib.hash import argon2
 
@@ -11,7 +16,7 @@ ALGORITHM = "HS256"
 SECRET_KEY = config("SECRET_KEY")  # openssl rand -hex 32
 ACCESS_TOKEN_EXPIRE_MINUTES = int(config("ACCESS_TOKEN_EXPIRE_MINUTES"))
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login", auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -41,5 +46,25 @@ def decode_access_token(token: str) -> int:
     return int(user_id)
 
 
-auth_dep = Annotated[str, Depends(oauth2_scheme)]
+def get_token(
+    request: Request,
+    oauth2_token: Optional[str] = Depends(oauth2_scheme),
+    bearer: Optional[HTTPAuthorizationCredentials] = Depends(
+        HTTPBearer(auto_error=False)
+    ),
+) -> str:
+    cookie_token = request.cookies.get("access_token")
+    if cookie_token:
+        return cookie_token
+
+    if oauth2_token:
+        return oauth2_token
+
+    if bearer:
+        return bearer.credentials
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+
+auth_dep = Annotated[str, Depends(get_token)]
 form_data = Annotated[OAuth2PasswordRequestForm, Depends()]
