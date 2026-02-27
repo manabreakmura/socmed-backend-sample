@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlmodel import desc, select
 
@@ -29,21 +31,27 @@ async def create_post(
 
 
 @posts_router.get("/")
-async def get_posts_by_user(
+async def get_posts(
     session: session_dep,
     auth: auth_dep,
-    user_id: int = Query(ge=1),
+    user_id: Optional[int] = Query(None, ge=1),
     offset: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
+    limit: Optional[int] = Query(None, ge=1, le=100),
 ) -> list[PostRead]:
     try:
-        statement = (
-            select(Post)
-            .where(Post.user_id == user_id)
-            .order_by(desc(Post.created_at))
-            .offset(offset)
-            .limit(limit)
-        )
+        if user_id is None:
+            statement = (
+                select(Post).order_by(desc(Post.created_at)).offset(offset).limit(limit)
+            )
+        else:
+            statement = (
+                select(Post)
+                .where(Post.user_id == user_id)
+                .order_by(desc(Post.created_at))
+                .offset(offset)
+                .limit(limit)
+            )
+
         results = await session.execute(statement)
         rows = results.scalars().all()
         return rows
