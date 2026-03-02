@@ -1,6 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
+from sqlalchemy.orm import selectinload
 from sqlmodel import desc, select
 
 from config.auth import auth_dep, decode_access_token
@@ -51,7 +52,7 @@ async def get_posts(
                 .offset(offset)
                 .limit(limit)
             )
-
+        statement = statement.options(selectinload(Post.user))
         results = await session.execute(statement)
         rows = results.scalars().all()
         return rows
