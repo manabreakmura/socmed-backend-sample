@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          activate-environment: "true"
+      - run: make ci
+        env:
+          DEBUG: ${{ secrets.DEBUG }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CACHE_URL: ${{ secrets.CACHE_URL }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          ACCESS_TOKEN_EXPIRE: ${{ secrets.ACCESS_TOKEN_EXPIRE }}
+          REFRESH_TOKEN_EXPIRE: ${{ secrets.REFRESH_TOKEN_EXPIRE }}
