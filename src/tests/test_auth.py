@@ -6,7 +6,7 @@ from fastapi import status
 async def test_signup_success(client):
     response = await client.post(
         "/api/v1/auth/signup",
-        json={"email": "test@user.com", "username": "testuser", "password": "test"},
+        json={"email": "test@user.com", "username": "testuser", "password": "testtest"},
     )
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
