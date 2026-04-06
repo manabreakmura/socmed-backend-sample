@@ -1,4 +1,5 @@
 import pytest
+from fastapi import status
 
 from src.config.settings import settings
 
@@ -20,4 +21,4 @@ async def test_cors(client):
 async def test_debug(client):
     response = await client.get("/docs")
     if settings.DEBUG:
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK

@@ -1,4 +1,5 @@
 import pytest_asyncio
+from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import StaticPool
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -47,17 +48,6 @@ async def client(session):
 
 
 @pytest_asyncio.fixture(scope="function")
-async def signup_obj(client):
-    data = {"email": "test@user.com", "username": "testuser", "password": "test"}
-    response = await client.post("/api/v1/auth/signup", json=data)
-    assert response.status_code == 200
-    user = response.json()
-    user["email"] = data["email"]
-    user["password"] = data["password"]
-    return user
-
-
-@pytest_asyncio.fixture(scope="function")
 async def authenticated_client(client, signup_obj):
     response = await client.post(
         "/api/v1/auth/signin",
@@ -66,5 +56,27 @@ async def authenticated_client(client, signup_obj):
             "password": signup_obj["password"],
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     return client
+
+
+@pytest_asyncio.fixture(scope="function")
+async def signup_obj(client):
+    data = {"email": "test@user.com", "username": "testuser", "password": "testtest"}
+    response = await client.post("/api/v1/auth/signup", json=data)
+    assert response.status_code == status.HTTP_200_OK
+    user = response.json()
+    user["email"] = data["email"]
+    user["password"] = data["password"]
+    return user
+
+
+@pytest_asyncio.fixture(scope="function")
+def post_factory(authenticated_client):
+    async def create_post(body: str):
+        payload = {"body": body}
+        response = await authenticated_client.post("/api/v1/posts", json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    return create_post

@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
 from src.config.auth import (
+    auth_dep,
     decode_token,
     delete_auth_cookie,
     encode_token,
@@ -78,16 +79,12 @@ async def signout(response: Response) -> None:
 
 
 @auth_router.get("/me")
-async def me(session: session_dep, request: Request) -> UserRead:
+async def me(session: session_dep, token: auth_dep) -> UserRead:
     try:
-        access_token = request.cookies.get("access_token")
+        payload = decode_token(token, "access_token")
+        user_id = payload.get("sub")
 
-        if not access_token:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED)
-
-        token = decode_token(access_token, "access_token")
-
-        statement = select(User).where(User.id == token.get("sub"))
+        statement = select(User).where(User.id == user_id)
         results = await session.execute(statement)
         row = results.scalar()
 
