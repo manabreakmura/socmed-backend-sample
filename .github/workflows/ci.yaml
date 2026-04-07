@@ -7,6 +7,13 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:8.6.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
