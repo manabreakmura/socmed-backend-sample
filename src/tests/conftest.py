@@ -5,7 +5,9 @@ from sqlalchemy import StaticPool
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 
+from src.config.cache import RedisClient, get_cache
 from src.config.db import get_session
+from src.config.settings import settings
 from src.main import app
 from src.users.models import User  # noqa
 
@@ -35,8 +37,16 @@ async def session(engine):
 
 
 @pytest_asyncio.fixture(scope="function")
-async def client(session):
+async def cache():
+    ca = RedisClient.from_url(f"{settings.CACHE_URL}/15", decode_responses=True)
+    yield ca
+    await ca.aclose()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def client(session, cache):
     app.dependency_overrides[get_session] = lambda: session
+    app.dependency_overrides[get_cache] = lambda: cache
 
     try:
         async with AsyncClient(
@@ -61,17 +71,6 @@ async def authenticated_client(client, signup_obj):
 
 
 @pytest_asyncio.fixture(scope="function")
-async def signup_obj(client):
-    data = {"email": "test@user.com", "username": "testuser", "password": "testtest"}
-    response = await client.post("/api/v1/auth/signup", json=data)
-    assert response.status_code == status.HTTP_200_OK
-    user = response.json()
-    user["email"] = data["email"]
-    user["password"] = data["password"]
-    return user
-
-
-@pytest_asyncio.fixture(scope="function")
 def post_factory(authenticated_client):
     async def create_post(body: str):
         payload = {"body": body}
@@ -80,3 +79,22 @@ def post_factory(authenticated_client):
         return response.json()
 
     return create_post
+
+
+@pytest_asyncio.fixture(scope="function")
+def user_factory(client):
+    async def create_user(email: str, username: str, password: str):
+        data = {"email": email, "username": username, "password": password}
+        response = await client.post("/api/v1/auth/signup", json=data)
+        assert response.status_code == status.HTTP_200_OK
+        user = response.json()
+        user["email"] = data["email"]
+        user["password"] = data["password"]
+        return user
+
+    return create_user
+
+
+@pytest_asyncio.fixture(scope="function")
+async def signup_obj(user_factory):
+    return await user_factory("test@user.com", "testuser", "testtest")
