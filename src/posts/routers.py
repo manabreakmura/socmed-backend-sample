@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlmodel import desc, select
 
 from src.config.auth import auth_dep, decode_token
+from src.config.cache import cache_dep
 from src.config.db import session_dep
 from src.posts.models import Post
 from src.posts.schemas import PostCreate, PostRead, PostUpdate
@@ -52,8 +53,15 @@ async def get_posts(
 
 
 @posts_router.get("/{post_id}")
-async def get_post(session: session_dep, token: auth_dep, post_id: int) -> PostRead:
+async def get_post(
+    session: session_dep, cache: cache_dep, _: auth_dep, post_id: int
+) -> PostRead:
     try:
+        cache_key, cache_value = "post", post_id
+        cached = await cache.get_(cache_key, cache_value)
+        if cached:
+            return PostRead.model_validate_json(cached)
+
         statement = select(Post).where(Post.id == post_id)
         results = await session.execute(statement)
         row = results.scalar()
@@ -61,6 +69,8 @@ async def get_post(session: session_dep, token: auth_dep, post_id: int) -> PostR
         if not row:
             raise HTTPException(status.HTTP_404_NOT_FOUND)
 
+        cache_obj = PostRead.model_validate(row)
+        await cache.set_(cache_key, cache_value, cache_obj.model_dump_json())
         return row  # type: ignore
     except HTTPException:
         raise
@@ -71,11 +81,13 @@ async def get_post(session: session_dep, token: auth_dep, post_id: int) -> PostR
 @posts_router.patch("/{post_id}")
 async def update_post(
     session: session_dep,
+    cache: cache_dep,
     token: auth_dep,
     post_id: int,
     data: PostUpdate,
 ) -> PostRead:
     try:
+        cache_key, cache_value = "post", post_id
         statement = select(Post).where(Post.id == post_id)
         results = await session.execute(statement)
         row = results.scalar()
@@ -96,6 +108,8 @@ async def update_post(
         await session.commit()
         await session.refresh(row)
 
+        await cache.del_(cache_key, cache_value)
+
         return row  # type: ignore
     except HTTPException:
         raise
@@ -104,8 +118,11 @@ async def update_post(
 
 
 @posts_router.delete("/{post_id}")
-async def delete_post(session: session_dep, token: auth_dep, post_id: int) -> None:
+async def delete_post(
+    session: session_dep, cache: cache_dep, token: auth_dep, post_id: int
+) -> None:
     try:
+        cache_key, cache_value = "post", post_id
         statement = select(Post).where(Post.id == post_id)
         results = await session.execute(statement)
         row = results.scalar()
@@ -121,6 +138,7 @@ async def delete_post(session: session_dep, token: auth_dep, post_id: int) -> No
 
         await session.delete(row)
         await session.commit()
+        await cache.del_(cache_key, cache_value)
     except HTTPException:
         raise
     except Exception:

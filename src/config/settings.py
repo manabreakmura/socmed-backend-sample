@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE: int
     REFRESH_TOKEN_EXPIRE: int
 
+    @property
+    def origins(self) -> list[str]:
+        return [url.strip() for url in self.FRONTEND_URL.split(",")]
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

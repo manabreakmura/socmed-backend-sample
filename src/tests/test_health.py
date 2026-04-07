@@ -12,9 +12,9 @@ async def test_startup(client):
 
 @pytest.mark.asyncio
 async def test_cors(client):
-    for URL in settings.FRONTEND_URL.split(","):
-        response = await client.options("/docs", headers={"Origin": URL})
-        assert response.headers.get("access-control-allow-origin") == URL
+    for url in settings.origins:
+        response = await client.options("/docs", headers={"Origin": url})
+        assert response.headers.get("access-control-allow-origin") == url
 
 
 @pytest.mark.asyncio

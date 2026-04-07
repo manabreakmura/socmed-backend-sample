@@ -5,15 +5,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.auth.routers import auth_router
+from src.config.cache import cache
 from src.config.db import engine
 from src.config.settings import settings
 from src.posts.routers import posts_router
+from src.users.routers import users_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
     await engine.dispose()
+    await cache.aclose()  # type: ignore
 
 
 app = FastAPI(
@@ -22,10 +25,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-origins = [URL for URL in settings.FRONTEND_URL.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,3 +36,4 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(posts_router)
+app.include_router(users_router)
