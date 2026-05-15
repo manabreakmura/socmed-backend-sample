@@ -6,7 +6,7 @@ from src.config.settings import settings
 
 @pytest.mark.anyio
 async def test_pg(pg_container):
-    assert pg_container.get_connection_url().startswith("postgresql+asyncpg://")
+    assert pg_container.startswith("postgresql+asyncpg://")
 
 
 @pytest.mark.anyio
