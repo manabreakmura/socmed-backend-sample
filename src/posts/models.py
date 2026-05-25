@@ -5,28 +5,23 @@ from uuid import UUID, uuid7
 from sqlmodel import TIMESTAMP, Field, Relationship, SQLModel, func
 
 if TYPE_CHECKING:
-    from src.posts.models import Post
+    from src.users.models import User
 
 
-class User(SQLModel, table=True):
-    __tablename__ = "users"
+class Post(SQLModel, table=True):
+    __tablename__ = "posts"
 
     id: UUID = Field(
         default_factory=uuid7,
         primary_key=True,
         sa_column_kwargs={"server_default": func.uuidv7()},
     )
-    email: str = Field(max_length=254, index=True, unique=True)
-    username: str = Field(max_length=64, index=True, unique=True)
-    hashed_password: str = Field(max_length=254)
+    body: str = Field(min_length=1, max_length=2000)
     created_at: datetime = Field(
         sa_type=TIMESTAMP(timezone=True),  # ty: ignore
         sa_column_kwargs={"server_default": func.current_timestamp()},
     )
-    posts: list["Post"] = Relationship(  # noqa: UP037
-        back_populates="user",
-        sa_relationship_kwargs={
-            "cascade": "all, delete-orphan",
-            "passive_deletes": True,
-        },
+    user_id: UUID = Field(index=True, foreign_key="users.id", ondelete="CASCADE")
+    user: "User" = Relationship(  # noqa: UP037
+        back_populates="posts", sa_relationship_kwargs={"lazy": "selectin"}
     )

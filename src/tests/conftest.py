@@ -46,8 +46,35 @@ async def session(engine):
 
 
 @pytest.fixture
+def signup_obj():
+    return {
+        "email": "test@user.com",
+        "username": "testuser",
+        "password": "test-user-test-user",
+    }
+
+
+@pytest.fixture
+def signin_obj():
+    return {
+        "username": "testuser",
+        "password": "test-user-test-user",
+    }
+
+
+@pytest.fixture
 async def client(session):
     async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as cl:
         app.dependency_overrides[get_session] = lambda: session
         yield cl
         app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def authenticated_client(client, signup_obj, signin_obj):
+    await client.post("/api/v1/auth/signup", json=signup_obj)
+
+    response = await client.post("/api/v1/auth/signin", data=signin_obj)
+    access_token = response.json()["access_token"]
+    client.headers["Authorization"] = f"Bearer {access_token}"
+    return client
