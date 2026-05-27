@@ -30,3 +30,5 @@ class PostRead(SQLModel):
     body: str
     created_at: datetime
     user: UserRead
+    like_count: int
+    is_liked: bool

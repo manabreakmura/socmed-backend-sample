@@ -4,6 +4,8 @@ from uuid import UUID, uuid7
 
 from sqlmodel import TIMESTAMP, Field, Relationship, SQLModel, func
 
+from src.posts.models import Like
+
 if TYPE_CHECKING:
     from src.posts.models import Post
 
@@ -29,4 +31,7 @@ class User(SQLModel, table=True):
             "cascade": "all, delete-orphan",
             "passive_deletes": True,
         },
+    )
+    likes: list["Post"] = Relationship(  # noqa: UP037
+        back_populates="likes", link_model=Like
     )
