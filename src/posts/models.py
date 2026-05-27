@@ -8,6 +8,13 @@ if TYPE_CHECKING:
     from src.users.models import User
 
 
+class Like(SQLModel, table=True):
+    __tablename__ = "likes"
+
+    user_id: UUID = Field(foreign_key="users.id", primary_key=True, ondelete="CASCADE")
+    post_id: UUID = Field(foreign_key="posts.id", primary_key=True, ondelete="CASCADE")
+
+
 class Post(SQLModel, table=True):
     __tablename__ = "posts"
 
@@ -24,4 +31,7 @@ class Post(SQLModel, table=True):
     user_id: UUID = Field(index=True, foreign_key="users.id", ondelete="CASCADE")
     user: "User" = Relationship(  # noqa: UP037
         back_populates="posts", sa_relationship_kwargs={"lazy": "selectin"}
+    )
+    likes: list["User"] = Relationship(  # noqa: UP037
+        back_populates="likes", link_model=Like
     )

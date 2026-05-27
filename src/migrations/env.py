@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import SQLModel
 
 from src.config.settings import settings
-from src.posts.models import Post  # noqa: F401
+from src.posts.models import Like, Post  # noqa: F401
 from src.users.models import User  # noqa: F401
 
 # this is the Alembic Config object, which provides
