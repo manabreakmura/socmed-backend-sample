@@ -1,102 +1,123 @@
 import pytest
 from fastapi import status
 
-
-@pytest.mark.anyio
-async def test_create_post_unauthorized_fail(client):
-    response = await client.post("/api/v1/posts", json={"body": "test-post"})
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+pytestmark = pytest.mark.anyio
 
 
-@pytest.mark.anyio
-async def test_create_post_success(authenticated_client):
-    response = await authenticated_client.post(
-        "/api/v1/posts", json={"body": "test-post"}
-    )
-    assert response.status_code == status.HTTP_200_OK
-    result = response.json()
-    assert result["body"] == "test-post"
-
-
-@pytest.mark.anyio
-async def test_create_post_empty_fail(authenticated_client):
-    response = await authenticated_client.post("/api/v1/posts", json={"body": ""})
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
-
-
-@pytest.mark.anyio
-async def test_get_all_posts_success(authenticated_client):
-    response = await authenticated_client.get("/api/v1/posts")
-    assert response.status_code == status.HTTP_200_OK
-
-
-@pytest.mark.anyio
-async def test_get_all_posts_unauthorized_fail(client):
-    response = await client.get("/api/v1/posts")
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-
-@pytest.mark.anyio
-async def test_update_post_success(authenticated_client):
-    row = (
-        await authenticated_client.post("/api/v1/posts", json={"body": "test-post"})
-    ).json()
-
-    result = (
-        await authenticated_client.patch(
-            f"/api/v1/posts/{row['id']}", json={"body": "updated"}
+class TestPost:
+    async def test_create_success(self, authenticated_client):
+        response = await authenticated_client.post(
+            "/api/v1/posts", json={"body": "test-post"}
         )
-    ).json()
-    assert result["body"] == "updated"
-    assert result["user"] == row["user"]
+        assert response.status_code == status.HTTP_200_OK
+
+        result = response.json()
+        assert result["body"] == "test-post"
+
+    async def test_create_no_auth_fail(self, client):
+        response = await client.post(
+            "/api/v1/posts", json={"body": "test-no-auth-post"}
+        )
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    async def test_create_empty_fail(self, authenticated_client):
+        response = await authenticated_client.post("/api/v1/posts", json={"body": ""})
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    async def test_get_all_success(self, authenticated_client, post_obj):
+        response = await authenticated_client.get("/api/v1/posts")
+        assert response.status_code == status.HTTP_200_OK
+
+        result = response.json()
+        assert result[0]["body"] == post_obj["body"]
+
+    async def test_get_no_auth_fail(self, client):
+        response = await client.get("/api/v1/posts")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    async def test_update_success(self, authenticated_client, post_obj):
+        response = await authenticated_client.patch(
+            f"/api/v1/posts/{post_obj['id']}", json={"body": "updated"}
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        result = response.json()
+        assert result["body"] == "updated"
+        assert result["user"] == post_obj["user"]
+
+    async def test_delete_success(self, authenticated_client, post_obj):
+        response = await authenticated_client.delete(f"/api/v1/posts/{post_obj['id']}")
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    async def test_delete_no_auth_fail(self, client, post_obj):
+        response = await client.delete(f"/api/v1/posts/{post_obj['id']}")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-@pytest.mark.anyio
-async def test_delete_post_success(authenticated_client):
-    row = (
-        await authenticated_client.post("/api/v1/posts", json={"body": "test-post"})
-    ).json()
+class TestLike:
+    async def test_success(self, authenticated_client, post_obj):
+        response = await authenticated_client.post(
+            f"/api/v1/posts/{post_obj['id']}/like"
+        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
 
-    response = await authenticated_client.delete(f"/api/v1/posts/{row['id']}")
-    assert response.status_code == status.HTTP_204_NO_CONTENT
+        response = await authenticated_client.get(f"/api/v1/posts/{post_obj['id']}")
+        assert response.status_code == status.HTTP_200_OK
+
+        result = response.json()
+        assert result["total_likes"] > 0
+        assert result["is_liked"] is True
+
+    async def test_no_auth_fail(self, client, post_obj):
+        response = await client.post(f"/api/v1/posts/{post_obj['id']}/like")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    async def test_not_found_fail(self, authenticated_client):
+        response = await authenticated_client.post(
+            "/api/v1/posts/00000000-0000-0000-0000-000000000000/like"
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    async def test_delete_success(self, authenticated_client, post_obj):
+        assert (
+            await authenticated_client.post(f"/api/v1/posts/{post_obj['id']}/like")
+        ).status_code == status.HTTP_204_NO_CONTENT
+
+        assert (
+            await authenticated_client.post(f"/api/v1/posts/{post_obj['id']}/like")
+        ).status_code == status.HTTP_204_NO_CONTENT
+
+        response = await authenticated_client.get(f"/api/v1/posts/{post_obj['id']}")
+        assert response.status_code == status.HTTP_200_OK
+
+        result = response.json()
+        assert result["total_likes"] == 0
+        assert result["is_liked"] is False
 
 
-@pytest.mark.anyio
-async def test_like_post_not_found(authenticated_client):
-    response = await authenticated_client.post(
-        "/api/v1/posts/00000000-0000-0000-0000-000000000000/like"
-    )
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+class TestComment:
+    async def test_create_success(self, authenticated_client, post_obj):
+        response = await authenticated_client.post(
+            f"/api/v1/posts/{post_obj['id']}/comments",
+            json={"body": "test-comment"},
+        )
+        assert response.status_code == status.HTTP_200_OK
 
+        result = response.json()
+        assert result["body"] == "test-comment"
 
-@pytest.mark.anyio
-async def test_like_post_unauthorized(client):
-    response = await client.post(
-        "/api/v1/posts/00000000-0000-0000-0000-000000000000/like"
-    )
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    async def test_get_success(self, authenticated_client, post_obj, comment_obj):
+        response = await authenticated_client.get(
+            f"/api/v1/posts/{post_obj['id']}/comments"
+        )
+        assert response.status_code == status.HTTP_200_OK
 
+        result = response.json()
+        assert result[0]["body"] == comment_obj["body"]
 
-@pytest.mark.anyio
-async def test_post_like(authenticated_client):
-    row = (
-        await authenticated_client.post("/api/v1/posts", json={"body": "test-post"})
-    ).json()
-
-    response = await authenticated_client.post(f"/api/v1/posts/{row['id']}/like")
-    assert response.status_code == status.HTTP_204_NO_CONTENT
-
-    response = await authenticated_client.get(f"/api/v1/posts/{row['id']}")
-    assert response.status_code == status.HTTP_200_OK
-    result = response.json()
-    assert result["like_count"] > 0
-    assert result["is_liked"] is True
-
-    response = await authenticated_client.post(f"/api/v1/posts/{row['id']}/like")
-    assert response.status_code == status.HTTP_204_NO_CONTENT
-
-    response = await authenticated_client.get(f"/api/v1/posts/{row['id']}")
-    assert response.status_code == status.HTTP_200_OK
-    result = response.json()
-    assert result["like_count"] == 0
-    assert result["is_liked"] is False
+    async def test_delete_success(self, authenticated_client, post_obj, comment_obj):
+        assert (
+            await authenticated_client.delete(
+                f"/api/v1/posts/{post_obj['id']}/comments/{comment_obj['id']}"
+            )
+        ).status_code == status.HTTP_204_NO_CONTENT

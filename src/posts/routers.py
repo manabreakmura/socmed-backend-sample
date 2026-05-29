@@ -5,8 +5,14 @@ from sqlmodel import desc, exists, func, select
 
 from src.config.auth import auth_dep
 from src.config.db import session_dep
-from src.posts.models import Like, Post
-from src.posts.schemas import PostCreate, PostRead, PostUpdate
+from src.posts.models import Comment, Like, Post
+from src.posts.schemas import (
+    CommentCreate,
+    CommentRead,
+    PostCreate,
+    PostRead,
+    PostUpdate,
+)
 
 posts_router = APIRouter(prefix="/api/v1/posts", tags=["posts"])
 
@@ -24,7 +30,7 @@ async def create_post(
         body=row.body,
         created_at=row.created_at,
         user=row.user,  # ty: ignore
-        like_count=0,
+        total_likes=0,
         is_liked=False,
     )
 
@@ -39,7 +45,7 @@ async def get_posts(
     statement = (
         select(
             Post,
-            func.count(Like.post_id).label("like_count"),  # ty: ignore
+            func.count(Like.post_id).label("total_likes"),  # ty: ignore
             exists()
             .where(Like.user_id == user_id, Like.post_id == Post.id)  # ty: ignore
             .correlate(Post)
@@ -60,10 +66,10 @@ async def get_posts(
             body=row.body,
             created_at=row.created_at,
             user=row.user,
-            like_count=like_count,
+            total_likes=total_likes,
             is_liked=is_liked,
         )
-        for row, like_count, is_liked in rows
+        for row, total_likes, is_liked in rows
     ]
 
 
@@ -72,7 +78,7 @@ async def get_post(id: UUID, user_id: auth_dep, session: session_dep) -> PostRea
     statement = (
         select(
             Post,
-            func.count(Like.post_id).label("like_count"),  # ty: ignore
+            func.count(Like.post_id).label("total_likes"),  # ty: ignore
             exists()
             .where(Like.user_id == user_id, Like.post_id == Post.id)  # ty: ignore
             .correlate(Post)
@@ -88,13 +94,13 @@ async def get_post(id: UUID, user_id: auth_dep, session: session_dep) -> PostRea
     if not row:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
 
-    row, like_count, is_liked = row
+    row, total_likes, is_liked = row
     return PostRead(
         id=row.id,
         body=row.body,
         created_at=row.created_at,
         user=row.user,
-        like_count=like_count,
+        total_likes=total_likes,
         is_liked=is_liked,
     )
 
@@ -122,7 +128,7 @@ async def update_post(
     statement = (
         select(
             Post,
-            func.count(Like.post_id).label("like_count"),  # ty: ignore
+            func.count(Like.post_id).label("total_likes"),  # ty: ignore
             exists()
             .where(Like.user_id == user_id, Like.post_id == Post.id)  # ty: ignore
             .correlate(Post)
@@ -138,14 +144,14 @@ async def update_post(
     if not row:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
 
-    row, like_count, is_liked = row
+    row, total_likes, is_liked = row
 
     return PostRead(
         id=row.id,
         body=row.body,
         created_at=row.created_at,
         user=row.user,
-        like_count=like_count,
+        total_likes=total_likes,
         is_liked=is_liked,
     )
 
@@ -184,4 +190,52 @@ async def like_post(id: UUID, user_id: auth_dep, session: session_dep):
     else:
         session.add(Like(user_id=user_id, post_id=id))
 
+    await session.commit()
+
+
+@posts_router.post("/{id}/comments", response_model=CommentRead)
+async def create_comment(
+    id: UUID, payload: CommentCreate, user_id: auth_dep, session: session_dep
+):
+    statement = select(Post).where(Post.id == id)
+    result = await session.execute(statement)
+    row = result.scalar()
+
+    if not row:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+
+    row = Comment(body=payload.body, user_id=user_id, post_id=id)
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return row
+
+
+@posts_router.get("/{id}/comments", response_model=list[CommentRead])
+async def get_comments(id: UUID, user_id: auth_dep, session: session_dep):
+    statement = (
+        select(Comment).where(Comment.post_id == id).order_by(desc(Comment.created_at))
+    )
+    result = await session.execute(statement)
+    rows = result.scalars().all()
+    return rows
+
+
+@posts_router.delete(
+    "/{post_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_comment(
+    post_id: UUID, comment_id: UUID, user_id: auth_dep, session: session_dep
+) -> None:
+    statement = select(Comment).where(Comment.id == comment_id)
+    result = await session.execute(statement)
+    row = result.scalar()
+
+    if not row or row.post_id != post_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+
+    if row.user_id != user_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN)
+
+    await session.delete(row)
     await session.commit()
