@@ -30,5 +30,21 @@ class PostRead(SQLModel):
     body: str
     created_at: datetime
     user: UserRead
-    like_count: int
+    total_likes: int
     is_liked: bool
+
+
+class CommentRead(SQLModel):
+    id: UUID
+    body: str
+    created_at: datetime
+    user: UserRead
+
+
+class CommentCreate(SQLModel):
+    body: str = Field(min_length=1, max_length=500)
+
+    @field_validator("body", mode="before")
+    @classmethod
+    def validate_body(cls, value: str) -> str:
+        return value.strip()

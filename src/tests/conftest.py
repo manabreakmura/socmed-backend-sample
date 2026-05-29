@@ -1,6 +1,7 @@
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from testcontainers.postgres import PostgresContainer
@@ -63,6 +64,25 @@ def signin_obj():
 
 
 @pytest.fixture
+async def post_obj(authenticated_client):
+    response = await authenticated_client.post(
+        "/api/v1/posts", json={"body": "test-post"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    return response.json()
+
+
+@pytest.fixture
+async def comment_obj(authenticated_client, post_obj):
+    response = await authenticated_client.post(
+        f"/api/v1/posts/{post_obj['id']}/comments",
+        json={"body": "test-comment"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    return response.json()
+
+
+@pytest.fixture
 async def client(session):
     async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as cl:
         app.dependency_overrides[get_session] = lambda: session
@@ -71,10 +91,12 @@ async def client(session):
 
 
 @pytest.fixture
-async def authenticated_client(client, signup_obj, signin_obj):
-    await client.post("/api/v1/auth/signup", json=signup_obj)
-
-    response = await client.post("/api/v1/auth/signin", data=signin_obj)
-    access_token = response.json()["access_token"]
-    client.headers["Authorization"] = f"Bearer {access_token}"
-    return client
+async def authenticated_client(session, signup_obj, signin_obj):
+    async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as cl:
+        app.dependency_overrides[get_session] = lambda: session
+        await cl.post("/api/v1/auth/signup", json=signup_obj)
+        response = await cl.post("/api/v1/auth/signin", data=signin_obj)
+        access_token = response.json()["access_token"]
+        cl.headers["Authorization"] = f"Bearer {access_token}"
+        yield cl
+        app.dependency_overrides.clear()

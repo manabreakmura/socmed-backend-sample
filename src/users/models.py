@@ -7,7 +7,7 @@ from sqlmodel import TIMESTAMP, Field, Relationship, SQLModel, func
 from src.posts.models import Like
 
 if TYPE_CHECKING:
-    from src.posts.models import Post
+    from src.posts.models import Comment, Post
 
 
 class User(SQLModel, table=True):
@@ -33,5 +33,13 @@ class User(SQLModel, table=True):
         },
     )
     likes: list["Post"] = Relationship(  # noqa: UP037
-        back_populates="likes", link_model=Like
+        back_populates="likes",
+        link_model=Like,
+    )
+    comments: list["Comment"] = Relationship(  # noqa: UP037
+        back_populates="user",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "passive_deletes": True,
+        },
     )
