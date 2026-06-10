@@ -17,8 +17,8 @@ class Comment(SQLModel, table=True):
         sa_column_kwargs={"server_default": func.uuidv7()},
     )
     body: str = Field(min_length=1, max_length=500)
-    user_id: UUID = Field(foreign_key="users.id", index=True, ondelete="CASCADE")
-    post_id: UUID = Field(foreign_key="posts.id", index=True, ondelete="CASCADE")
+    user_id: UUID = Field(foreign_key="users.id", ondelete="CASCADE", index=True)
+    post_id: UUID = Field(foreign_key="posts.id", ondelete="CASCADE", index=True)
     created_at: datetime = Field(
         sa_type=TIMESTAMP(timezone=True),  # ty: ignore
         sa_column_kwargs={"server_default": func.current_timestamp()},
@@ -31,8 +31,10 @@ class Comment(SQLModel, table=True):
 class Like(SQLModel, table=True):
     __tablename__ = "likes"
 
-    user_id: UUID = Field(foreign_key="users.id", primary_key=True, ondelete="CASCADE")
-    post_id: UUID = Field(foreign_key="posts.id", primary_key=True, ondelete="CASCADE")
+    post_id: UUID = Field(primary_key=True, foreign_key="posts.id", ondelete="CASCADE")
+    user_id: UUID = Field(
+        primary_key=True, foreign_key="users.id", ondelete="CASCADE", index=True
+    )
 
 
 class Post(SQLModel, table=True):
@@ -48,7 +50,7 @@ class Post(SQLModel, table=True):
         sa_type=TIMESTAMP(timezone=True),  # ty: ignore
         sa_column_kwargs={"server_default": func.current_timestamp()},
     )
-    user_id: UUID = Field(index=True, foreign_key="users.id", ondelete="CASCADE")
+    user_id: UUID = Field(foreign_key="users.id", ondelete="CASCADE", index=True)
     user: "User" = Relationship(  # noqa: UP037
         back_populates="posts", sa_relationship_kwargs={"lazy": "selectin"}
     )

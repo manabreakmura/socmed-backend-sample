@@ -26,3 +26,8 @@ class UserRead(SQLModel):
     email: EmailStr
     username: str
     created_at: datetime
+
+
+class UserUpdate(SQLModel):
+    email: EmailStr | None = Field(default=None, max_length=254)
+    username: str | None = Field(default=None, max_length=64)
