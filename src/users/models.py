@@ -18,8 +18,8 @@ class User(SQLModel, table=True):
         primary_key=True,
         sa_column_kwargs={"server_default": func.uuidv7()},
     )
-    email: str = Field(max_length=254, index=True, unique=True)
-    username: str = Field(max_length=64, index=True, unique=True)
+    email: str = Field(max_length=254, unique=True)
+    username: str = Field(max_length=64, unique=True)
     hashed_password: str = Field(max_length=254)
     created_at: datetime = Field(
         sa_type=TIMESTAMP(timezone=True),  # ty: ignore
@@ -42,4 +42,15 @@ class User(SQLModel, table=True):
             "cascade": "all, delete-orphan",
             "passive_deletes": True,
         },
+    )
+
+
+class Follow(SQLModel, table=True):
+    __tablename__ = "follows"
+
+    follower_id: UUID = Field(
+        primary_key=True, foreign_key="users.id", ondelete="CASCADE"
+    )
+    following_id: UUID = Field(
+        primary_key=True, foreign_key="users.id", ondelete="CASCADE", index=True
     )

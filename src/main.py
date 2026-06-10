@@ -7,6 +7,7 @@ from src.auth.routers import auth_router
 from src.config.db import engine
 from src.config.settings import settings
 from src.posts.routers import posts_router
+from src.users.routers import users_router
 
 
 @asynccontextmanager
@@ -36,3 +37,4 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(posts_router)
+app.include_router(users_router)

@@ -13,6 +13,7 @@ from src.posts.schemas import (
     PostRead,
     PostUpdate,
 )
+from src.users.models import Follow
 
 posts_router = APIRouter(prefix="/api/v1/posts", tags=["posts"])
 
@@ -39,19 +40,33 @@ async def create_post(
 async def get_posts(
     user_id: auth_dep,
     session: session_dep,
+    id: UUID = Query(default=None),  # noqa
+    feed: bool = Query(default=False),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
 ) -> list[PostRead]:
-    statement = (
-        select(
-            Post,
-            func.count(Like.post_id).label("total_likes"),  # ty: ignore
-            exists()
-            .where(Like.user_id == user_id, Like.post_id == Post.id)  # ty: ignore
-            .correlate(Post)
-            .label("is_liked"),
+
+    if id and feed:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST)
+
+    statement = select(
+        Post,
+        func.count(Like.post_id).label("total_likes"),  # ty: ignore
+        exists()
+        .where(Like.user_id == user_id, Like.post_id == Post.id)  # ty: ignore
+        .correlate(Post)
+        .label("is_liked"),
+    )
+    if id:
+        statement = statement.where(Post.user_id == id)
+
+    if feed:
+        statement = statement.join(Follow, Post.user_id == Follow.following_id).where(  # ty: ignore
+            Follow.follower_id == user_id
         )
-        .outerjoin(Like)
+
+    statement = (
+        statement.outerjoin(Like)
         .group_by(Post.id)  # ty: ignore
         .order_by(desc(Post.created_at))
         .offset(offset)
@@ -172,8 +187,8 @@ async def delete_post(id: UUID, user_id: auth_dep, session: session_dep) -> None
     await session.commit()
 
 
-@posts_router.post("/{id}/like", status_code=status.HTTP_204_NO_CONTENT)
-async def like_post(id: UUID, user_id: auth_dep, session: session_dep):
+@posts_router.post("/{id}/like")
+async def like(id: UUID, user_id: auth_dep, session: session_dep) -> dict[str, bool]:
     statement = select(Post).where(Post.id == id)
     result = await session.execute(statement)
     row = result.scalar()
@@ -187,16 +202,19 @@ async def like_post(id: UUID, user_id: auth_dep, session: session_dep):
 
     if row:
         await session.delete(row)
+        is_liked = False
     else:
         session.add(Like(user_id=user_id, post_id=id))
+        is_liked = True
 
     await session.commit()
+    return {"is_liked": is_liked}
 
 
 @posts_router.post("/{id}/comments", response_model=CommentRead)
 async def create_comment(
     id: UUID, payload: CommentCreate, user_id: auth_dep, session: session_dep
-):
+) -> CommentRead:
     statement = select(Post).where(Post.id == id)
     result = await session.execute(statement)
     row = result.scalar()
@@ -208,17 +226,19 @@ async def create_comment(
     session.add(row)
     await session.commit()
     await session.refresh(row)
-    return row
+    return row  # ty: ignore
 
 
 @posts_router.get("/{id}/comments", response_model=list[CommentRead])
-async def get_comments(id: UUID, user_id: auth_dep, session: session_dep):
+async def get_comments(
+    id: UUID, user_id: auth_dep, session: session_dep
+) -> list[CommentRead]:
     statement = (
         select(Comment).where(Comment.post_id == id).order_by(desc(Comment.created_at))
     )
     result = await session.execute(statement)
     rows = result.scalars().all()
-    return rows
+    return rows  # ty: ignore
 
 
 @posts_router.delete(

@@ -56,10 +56,9 @@ class TestPost:
 
 class TestLike:
     async def test_success(self, authenticated_client, post_obj):
-        response = await authenticated_client.post(
-            f"/api/v1/posts/{post_obj['id']}/like"
-        )
-        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert (
+            await authenticated_client.post(f"/api/v1/posts/{post_obj['id']}/like")
+        ).json() == {"is_liked": True}
 
         response = await authenticated_client.get(f"/api/v1/posts/{post_obj['id']}")
         assert response.status_code == status.HTTP_200_OK
@@ -81,11 +80,11 @@ class TestLike:
     async def test_delete_success(self, authenticated_client, post_obj):
         assert (
             await authenticated_client.post(f"/api/v1/posts/{post_obj['id']}/like")
-        ).status_code == status.HTTP_204_NO_CONTENT
+        ).json() == {"is_liked": True}
 
         assert (
             await authenticated_client.post(f"/api/v1/posts/{post_obj['id']}/like")
-        ).status_code == status.HTTP_204_NO_CONTENT
+        ).json() == {"is_liked": False}
 
         response = await authenticated_client.get(f"/api/v1/posts/{post_obj['id']}")
         assert response.status_code == status.HTTP_200_OK
