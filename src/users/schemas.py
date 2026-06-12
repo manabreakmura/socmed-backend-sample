@@ -11,6 +11,16 @@ class UserCreate(SQLModel):
     username: str = Field(max_length=64)
     password: SecretStr = Field(min_length=8, max_length=64)
 
+    @field_validator("email", mode="after")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return value.strip().lower()
+
+    @field_validator("username", mode="after")
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        return value.strip().lower()
+
     @field_validator("password", mode="after")
     @classmethod
     def validate_password(cls, value: SecretStr) -> SecretStr:
@@ -23,7 +33,6 @@ class UserCreate(SQLModel):
 
 class UserRead(SQLModel):
     id: UUID
-    email: EmailStr
     username: str
     created_at: datetime
 
@@ -31,3 +40,13 @@ class UserRead(SQLModel):
 class UserUpdate(SQLModel):
     email: EmailStr | None = Field(default=None, max_length=254)
     username: str | None = Field(default=None, max_length=64)
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def validate_email(cls, value: str | None) -> str | None:
+        return value.strip().lower() if value else value
+
+    @field_validator("username", mode="after")
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        return value.strip().lower() if value else value

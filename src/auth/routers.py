@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from sqlalchemy.orm import load_only
 from sqlmodel import or_, select
@@ -22,8 +24,8 @@ async def signup(payload: UserCreate, session: session_dep) -> UserRead:
         )
         .exists()
     )
-    result = await session.execute(statement)
-    if result.scalar():
+
+    if (await session.execute(statement)).scalar():
         raise HTTPException(status.HTTP_409_CONFLICT)
 
     row = User(
@@ -48,6 +50,7 @@ async def signin(
     )
     result = await session.execute(statement)
     row = result.scalar()
+
     if not row:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED)
 
@@ -66,7 +69,7 @@ async def signin(
     }
 
 
-@auth_router.post("/signout")
+@auth_router.post("/signout", status_code=status.HTTP_204_NO_CONTENT)
 async def signout(user_id: auth_dep, response: Response) -> None:
     to.delete_cookie(response, "access_token")
     to.delete_cookie(response, "refresh_token")
@@ -78,21 +81,29 @@ async def refresh(
     response: Response,
 ) -> dict[str, str]:
     refresh_token = request.cookies.get("refresh_token")
+
     if not refresh_token:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED)
 
     user_id = to.decode_token(refresh_token, "refresh_token")["sub"]
     access_token = to.encode_token(user_id, "access_token")
     to.set_cookie(response, "access_token", access_token)
+
     return {"access_token": access_token}
 
 
 @auth_router.get("/me")
-async def me(user_id: auth_dep, session: session_dep) -> UserRead:
+async def me(user_id: auth_dep, session: session_dep) -> dict[str, Any]:
     statement = select(User).where(User.id == user_id)
     result = await session.execute(statement)
     row = result.scalar()
+
     if not row:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
 
-    return row  # ty: ignore
+    return {
+        "id": row.id,
+        "email": row.email,
+        "username": row.username,
+        "created_at": row.created_at,
+    }

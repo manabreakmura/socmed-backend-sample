@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy.orm import load_only
-from sqlmodel import desc, select
+from sqlmodel import select
 
 from src.config.auth import auth_dep
 from src.config.db import session_dep
@@ -10,19 +10,6 @@ from src.users.models import Follow, User
 from src.users.schemas import UserRead, UserUpdate
 
 users_router = APIRouter(prefix="/api/v1/users", tags=["users"])
-
-
-@users_router.get("", response_model=list[UserRead])
-async def get_users(
-    user_id: auth_dep,
-    session: session_dep,
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, ge=1, le=100),
-) -> list[UserRead]:
-    statement = select(User).order_by(desc(User.created_at)).offset(offset).limit(limit)
-    result = await session.execute(statement)
-    rows = result.scalars().all()
-    return rows  # ty: ignore
 
 
 @users_router.get("/{id}", response_model=UserRead)
@@ -61,6 +48,7 @@ async def update_user(
 
     await session.commit()
     await session.refresh(row)
+
     return row  # ty: ignore
 
 
@@ -69,7 +57,6 @@ async def delete_user(id: UUID, user_id: auth_dep, session: session_dep) -> None
     statement = (
         select(User).where(User.id == id).options(load_only(User.id))  # ty: ignore
     )
-
     result = await session.execute(statement)
     row = result.scalar()
 
@@ -109,4 +96,22 @@ async def follow(id: UUID, user_id: auth_dep, session: session_dep) -> dict[str,
         following = True
 
     await session.commit()
+
     return {"following": following}
+
+
+@users_router.get("", response_model=list[UserRead])
+async def search(
+    user_id: auth_dep,
+    session: session_dep,
+    search: str = Query(min_length=1, max_length=64),
+) -> list[UserRead]:
+    statement = (
+        select(User)
+        .where(User.username.startswith(search, autoescape=True))  # ty: ignore
+        .order_by(User.username)
+    ).limit(20)
+    result = await session.execute(statement)
+    rows = result.scalars().all()
+
+    return rows  # ty: ignore
