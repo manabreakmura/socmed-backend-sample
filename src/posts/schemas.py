@@ -32,6 +32,7 @@ class PostRead(SQLModel):
     user: UserRead
     total_likes: int
     is_liked: bool
+    is_bookmarked: bool
 
 
 class CommentRead(SQLModel):

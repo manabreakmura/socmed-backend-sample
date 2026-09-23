@@ -4,7 +4,7 @@ from alembic.config import Config
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from testcontainers.postgres import PostgresContainer
+from testcontainers.community.postgres import PostgresContainer
 
 from src.config.db import get_session
 from src.config.settings import settings

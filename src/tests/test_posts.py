@@ -83,7 +83,7 @@ class TestLike:
         ).json() == {"is_liked": True}
 
         assert (
-            await authenticated_client.post(f"/api/v1/posts/{post_obj['id']}/like")
+            await authenticated_client.delete(f"/api/v1/posts/{post_obj['id']}/like")
         ).json() == {"is_liked": False}
 
         response = await authenticated_client.get(f"/api/v1/posts/{post_obj['id']}")

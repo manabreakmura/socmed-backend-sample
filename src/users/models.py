@@ -4,10 +4,21 @@ from uuid import UUID, uuid7
 
 from sqlmodel import TIMESTAMP, Field, Relationship, SQLModel, func
 
-from src.posts.models import Like
+from src.posts.models import Bookmark, Like
 
 if TYPE_CHECKING:
     from src.posts.models import Comment, Post
+
+
+class Follow(SQLModel, table=True):
+    __tablename__ = "follows"
+
+    follower_id: UUID = Field(
+        primary_key=True, foreign_key="users.id", ondelete="CASCADE"
+    )
+    following_id: UUID = Field(
+        primary_key=True, foreign_key="users.id", ondelete="CASCADE", index=True
+    )
 
 
 class User(SQLModel, table=True):
@@ -19,10 +30,10 @@ class User(SQLModel, table=True):
         sa_column_kwargs={"server_default": func.uuidv7()},
     )
     email: str = Field(max_length=254, unique=True)
-    username: str = Field(max_length=64, unique=True)
+    username: str = Field(min_length=2, max_length=64, unique=True)
     hashed_password: str = Field(max_length=254)
     created_at: datetime = Field(
-        sa_type=TIMESTAMP(timezone=True),  # ty: ignore
+        sa_type=TIMESTAMP(timezone=True),
         sa_column_kwargs={"server_default": func.current_timestamp()},
     )
     posts: list["Post"] = Relationship(  # noqa: UP037
@@ -36,21 +47,14 @@ class User(SQLModel, table=True):
         back_populates="likes",
         link_model=Like,
     )
+    bookmarks: list["Post"] = Relationship(  # noqa: UP037
+        back_populates="bookmarks",
+        link_model=Bookmark,
+    )
     comments: list["Comment"] = Relationship(  # noqa: UP037
         back_populates="user",
         sa_relationship_kwargs={
             "cascade": "all, delete-orphan",
             "passive_deletes": True,
         },
-    )
-
-
-class Follow(SQLModel, table=True):
-    __tablename__ = "follows"
-
-    follower_id: UUID = Field(
-        primary_key=True, foreign_key="users.id", ondelete="CASCADE"
-    )
-    following_id: UUID = Field(
-        primary_key=True, foreign_key="users.id", ondelete="CASCADE", index=True
     )

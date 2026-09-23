@@ -1,8 +1,8 @@
-"""Initial
+"""initial
 
-Revision ID: 9a28ab3dcb3a
+Revision ID: 822a10c09e54
 Revises: 
-Create Date: 2026-06-09 15:47:22.013866
+Create Date: 2026-09-23 07:53:03.316534
 
 """
 from typing import Sequence, Union
@@ -13,7 +13,7 @@ import sqlmodel
 
 
 # revision identifiers, used by Alembic.
-revision: str = '9a28ab3dcb3a'
+revision: str = '822a10c09e54'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -49,6 +49,14 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_posts_user_id'), 'posts', ['user_id'], unique=False)
+    op.create_table('bookmarks',
+    sa.Column('post_id', sa.Uuid(), nullable=False),
+    sa.Column('user_id', sa.Uuid(), nullable=False),
+    sa.ForeignKeyConstraint(['post_id'], ['posts.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('post_id', 'user_id')
+    )
+    op.create_index(op.f('ix_bookmarks_user_id'), 'bookmarks', ['user_id'], unique=False)
     op.create_table('comments',
     sa.Column('id', sa.Uuid(), server_default=sa.text('uuidv7()'), nullable=False),
     sa.Column('body', sqlmodel.sql.sqltypes.AutoString(length=500), nullable=False),
@@ -80,6 +88,8 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_comments_user_id'), table_name='comments')
     op.drop_index(op.f('ix_comments_post_id'), table_name='comments')
     op.drop_table('comments')
+    op.drop_index(op.f('ix_bookmarks_user_id'), table_name='bookmarks')
+    op.drop_table('bookmarks')
     op.drop_index(op.f('ix_posts_user_id'), table_name='posts')
     op.drop_table('posts')
     op.drop_index(op.f('ix_follows_following_id'), table_name='follows')
