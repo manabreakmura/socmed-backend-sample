@@ -8,6 +8,24 @@ if TYPE_CHECKING:
     from src.users.models import User
 
 
+class Like(SQLModel, table=True):
+    __tablename__ = "likes"
+
+    post_id: UUID = Field(primary_key=True, foreign_key="posts.id", ondelete="CASCADE")
+    user_id: UUID = Field(
+        primary_key=True, foreign_key="users.id", ondelete="CASCADE", index=True
+    )
+
+
+class Bookmark(SQLModel, table=True):
+    __tablename__ = "bookmarks"
+
+    post_id: UUID = Field(primary_key=True, foreign_key="posts.id", ondelete="CASCADE")
+    user_id: UUID = Field(
+        primary_key=True, foreign_key="users.id", ondelete="CASCADE", index=True
+    )
+
+
 class Comment(SQLModel, table=True):
     __tablename__ = "comments"
 
@@ -20,20 +38,11 @@ class Comment(SQLModel, table=True):
     user_id: UUID = Field(foreign_key="users.id", ondelete="CASCADE", index=True)
     post_id: UUID = Field(foreign_key="posts.id", ondelete="CASCADE", index=True)
     created_at: datetime = Field(
-        sa_type=TIMESTAMP(timezone=True),  # ty: ignore
+        sa_type=TIMESTAMP(timezone=True),
         sa_column_kwargs={"server_default": func.current_timestamp()},
     )
     user: "User" = Relationship(  # noqa: UP037
         back_populates="comments", sa_relationship_kwargs={"lazy": "selectin"}
-    )
-
-
-class Like(SQLModel, table=True):
-    __tablename__ = "likes"
-
-    post_id: UUID = Field(primary_key=True, foreign_key="posts.id", ondelete="CASCADE")
-    user_id: UUID = Field(
-        primary_key=True, foreign_key="users.id", ondelete="CASCADE", index=True
     )
 
 
@@ -47,7 +56,7 @@ class Post(SQLModel, table=True):
     )
     body: str = Field(min_length=1, max_length=2000)
     created_at: datetime = Field(
-        sa_type=TIMESTAMP(timezone=True),  # ty: ignore
+        sa_type=TIMESTAMP(timezone=True),
         sa_column_kwargs={"server_default": func.current_timestamp()},
     )
     user_id: UUID = Field(foreign_key="users.id", ondelete="CASCADE", index=True)
@@ -57,4 +66,8 @@ class Post(SQLModel, table=True):
     likes: list["User"] = Relationship(  # noqa: UP037
         back_populates="likes",
         link_model=Like,
+    )
+    bookmarks: list["User"] = Relationship(  # noqa: UP037
+        back_populates="bookmarks",
+        link_model=Bookmark,
     )

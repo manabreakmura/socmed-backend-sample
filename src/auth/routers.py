@@ -1,42 +1,32 @@
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import load_only
-from sqlmodel import or_, select
+from sqlmodel import select
 
 from src.config.auth import auth_dep, form_data, pa, to
 from src.config.db import session_dep
 from src.users.models import User
-from src.users.schemas import UserCreate, UserRead
+from src.users.schemas import UserCreate
 
 auth_router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
-@auth_router.post("/signup", response_model=UserRead)
-async def signup(payload: UserCreate, session: session_dep) -> UserRead:
-    statement = select(
-        select(User)
-        .where(
-            or_(
-                User.email == payload.email,
-                User.username == payload.username,
-            )
-        )
-        .exists()
-    )
-
-    if (await session.execute(statement)).scalar():
-        raise HTTPException(status.HTTP_409_CONFLICT)
-
-    row = User(
+@auth_router.post("/signup", status_code=status.HTTP_201_CREATED)
+async def signup(payload: UserCreate, session: session_dep) -> None:
+    row = User(  # ty: ignore
         email=payload.email,
         username=payload.username,
         hashed_password=pa.hash_password(payload.password.get_secret_value()),
     )
     session.add(row)
-    await session.commit()
-    await session.refresh(row)
-    return row  # ty: ignore
+
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT)  # noqa
 
 
 @auth_router.post("/signin")

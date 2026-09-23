@@ -35,6 +35,7 @@ class UserRead(SQLModel):
     id: UUID
     username: str
     created_at: datetime
+    is_following: bool = False
 
 
 class UserUpdate(SQLModel):
